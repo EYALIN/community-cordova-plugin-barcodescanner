@@ -8,7 +8,7 @@
     xmlns="http://apache.org/cordova/ns/plugins/1.0"
     xmlns:android="http://schemas.android.com/apk/res/android"
     id="community-cordova-plugin-barcodescanner"
-    version="2.0.5">
+    version="2.0.7">
 
     <name>BarcodeScanner</name>
     <description>Community Cordova BarcodeScanner Plugin - Scan barcodes and QR codes using Google ML Kit</description>
@@ -24,7 +24,7 @@
     </engines>
 
     <js-module src="www/barcodescanner.js" name="BarcodeScanner">
-        <clobbers target="cordova.plugins.barcodeScanner"/>
+        <clobbers target="BarcodeScannerPlugin"/>
     </js-module>
 
     <!-- iOS Platform -->
