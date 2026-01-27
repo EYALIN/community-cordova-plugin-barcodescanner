@@ -8,7 +8,7 @@
     xmlns="http://apache.org/cordova/ns/plugins/1.0"
     xmlns:android="http://schemas.android.com/apk/res/android"
     id="community-cordova-plugin-barcodescanner"
-    version="2.0.0">
+    version="2.0.2">
 
     <name>BarcodeScanner</name>
     <description>Community Cordova BarcodeScanner Plugin - Scan barcodes and QR codes using Google ML Kit</description>
@@ -59,10 +59,7 @@
         </podspec>
 
         <!-- Swift support -->
-        <preference name="UseSwiftLanguageVersion" value="5"/>
-        <config-file target="*-Debug.plist" parent="com.apple.security.app-sandbox">
-            <true/>
-        </config-file>
+        <dependency id="cordova-plugin-add-swift-support" version="^2.0.2"/>
     </platform>
 
     <!-- Android Platform -->
