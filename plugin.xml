@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Community Cordova BarcodeScanner Plugin
+  Powered by Google ML Kit
+  Licensed under MIT License
+-->
+<plugin
+    xmlns="http://apache.org/cordova/ns/plugins/1.0"
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    id="community-cordova-plugin-barcodescanner"
+    version="2.0.0">
+
+    <name>BarcodeScanner</name>
+    <description>Community Cordova BarcodeScanner Plugin - Scan barcodes and QR codes using Google ML Kit</description>
+    <license>MIT</license>
+    <keywords>cordova,barcode,qr,scanner,mlkit,camera,google</keywords>
+    <repo>https://github.com/EYALIN/community-cordova-plugin-barcodescanner</repo>
+    <issue>https://github.com/EYALIN/community-cordova-plugin-barcodescanner/issues</issue>
+
+    <engines>
+        <engine name="cordova" version=">=10.0.0"/>
+        <engine name="cordova-android" version=">=10.0.0"/>
+        <engine name="cordova-ios" version=">=6.0.0"/>
+    </engines>
+
+    <js-module src="www/barcodescanner.js" name="BarcodeScanner">
+        <clobbers target="cordova.plugins.barcodeScanner"/>
+    </js-module>
+
+    <!-- iOS Platform -->
+    <platform name="ios">
+        <config-file target="config.xml" parent="/*">
+            <feature name="BarcodeScanner">
+                <param name="ios-package" value="CDVBarcodeScanner"/>
+            </feature>
+        </config-file>
+
+        <preference name="CAMERA_USAGE_DESCRIPTION" default="This app requires camera access to scan barcodes and QR codes"/>
+        <config-file target="*-Info.plist" parent="NSCameraUsageDescription">
+            <string>$CAMERA_USAGE_DESCRIPTION</string>
+        </config-file>
+
+        <header-file src="src/ios/CDVBarcodeScanner.h"/>
+        <source-file src="src/ios/CDVBarcodeScanner.m"/>
+        <source-file src="src/ios/BarcodeScannerViewController.swift"/>
+
+        <framework src="AVFoundation.framework"/>
+        <framework src="AudioToolbox.framework"/>
+        <framework src="CoreMedia.framework"/>
+
+        <!-- ML Kit via CocoaPods -->
+        <podspec>
+            <config>
+                <source url="https://cdn.cocoapods.org/"/>
+            </config>
+            <pods use-frameworks="true">
+                <pod name="GoogleMLKit/BarcodeScanning" spec="~> 6.0.0"/>
+            </pods>
+        </podspec>
+
+        <!-- Swift support -->
+        <preference name="UseSwiftLanguageVersion" value="5"/>
+        <config-file target="*-Debug.plist" parent="com.apple.security.app-sandbox">
+            <true/>
+        </config-file>
+    </platform>
+
+    <!-- Android Platform -->
+    <platform name="android">
+        <config-file target="res/xml/config.xml" parent="/*">
+            <feature name="BarcodeScanner">
+                <param name="android-package" value="com.anthropic.community.barcodescanner.BarcodeScanner"/>
+            </feature>
+        </config-file>
+
+        <config-file target="AndroidManifest.xml" parent="/manifest/application">
+            <activity
+                android:name="com.anthropic.community.barcodescanner.BarcodeScannerActivity"
+                android:screenOrientation="portrait"
+                android:theme="@style/Theme.AppCompat.NoActionBar"
+                android:exported="false"/>
+            <meta-data
+                android:name="com.google.mlkit.vision.DEPENDENCIES"
+                android:value="barcode"/>
+        </config-file>
+
+        <config-file target="AndroidManifest.xml" parent="/manifest">
+            <uses-permission android:name="android.permission.CAMERA"/>
+            <uses-feature android:name="android.hardware.camera" android:required="false"/>
+            <uses-feature android:name="android.hardware.camera.autofocus" android:required="false"/>
+        </config-file>
+
+        <source-file src="src/android/BarcodeScanner.java" target-dir="src/com/anthropic/community/barcodescanner"/>
+        <source-file src="src/android/BarcodeScannerActivity.java" target-dir="src/com/anthropic/community/barcodescanner"/>
+
+        <resource-file src="src/android/res/layout/activity_barcode_scanner.xml" target="res/layout/activity_barcode_scanner.xml"/>
+        <resource-file src="src/android/res/drawable/rounded_rectangle.xml" target="res/drawable/rounded_rectangle.xml"/>
+
+        <framework src="src/android/build.gradle" custom="true" type="gradleReference"/>
+    </platform>
+
+    <!-- Browser Platform -->
+    <platform name="browser">
+        <config-file target="config.xml" parent="/*">
+            <feature name="BarcodeScanner">
+                <param name="browser-package" value="BarcodeScanner"/>
+            </feature>
+        </config-file>
+        <js-module src="src/browser/BarcodeScannerProxy.js" name="BarcodeScannerProxy">
+            <runs/>
+        </js-module>
+    </platform>
+
+</plugin>

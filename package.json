@@ -1,0 +1,55 @@
+{
+  "name": "community-cordova-plugin-barcodescanner",
+  "version": "2.0.1",
+  "description": "Community Cordova BarcodeScanner Plugin - Scan barcodes and QR codes using Google ML Kit",
+  "main": "./types/index.d.ts",
+  "types": "./types/index.d.ts",
+  "cordova": {
+    "id": "community-cordova-plugin-barcodescanner",
+    "platforms": [
+      "android",
+      "ios",
+      "browser"
+    ]
+  },
+  "readme": "README.md",
+  "repository": "EYALIN/community-cordova-plugin-barcodescanner",
+  "homepage": "https://github.com/EYALIN/community-cordova-plugin-barcodescanner",
+  "funding": "https://github.com/sponsors/EYALIN",
+  "bugs": "https://github.com/EYALIN/community-cordova-plugin-barcodescanner/issues",
+  "keywords": [
+    "cordova",
+    "barcode",
+    "qr",
+    "qrcode",
+    "scanner",
+    "mlkit",
+    "ml-kit",
+    "google",
+    "camera",
+    "ecosystem:cordova",
+    "cordova-android",
+    "cordova-ios"
+  ],
+  "scripts": {
+    "test": "npm run lint",
+    "lint": "eslint ."
+  },
+  "author": "EYALIN",
+  "contributors": [
+    "EYALIN"
+  ],
+  "license": "MIT",
+  "engines": {
+    "cordovaDependencies": {
+      "2.0.0": {
+        "cordova": ">=10.0.0",
+        "cordova-android": ">=10.0.0",
+        "cordova-ios": ">=6.0.0"
+      }
+    }
+  },
+  "devDependencies": {
+    "@cordova/eslint-config": "^3.0.0"
+  }
+}
