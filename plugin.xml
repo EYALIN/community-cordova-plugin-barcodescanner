@@ -8,7 +8,7 @@
     xmlns="http://apache.org/cordova/ns/plugins/1.0"
     xmlns:android="http://schemas.android.com/apk/res/android"
     id="community-cordova-plugin-barcodescanner"
-    version="2.0.3">
+    version="2.0.5">
 
     <name>BarcodeScanner</name>
     <description>Community Cordova BarcodeScanner Plugin - Scan barcodes and QR codes using Google ML Kit</description>
@@ -36,7 +36,7 @@
         </config-file>
 
         <preference name="CAMERA_USAGE_DESCRIPTION" default="This app requires camera access to scan barcodes and QR codes"/>
-        <config-file target="*-Info.plist" parent="NSCameraUsageDescription">
+        <config-file target="App/App-Info.plist" parent="NSCameraUsageDescription">
             <string>$CAMERA_USAGE_DESCRIPTION</string>
         </config-file>
 
@@ -54,13 +54,12 @@
                 <source url="https://cdn.cocoapods.org/"/>
             </config>
             <pods use-frameworks="true">
-                <pod name="GoogleMLKit/BarcodeScanning" spec="~> 6.0.0"/>
+                <pod name="GoogleMLKit/BarcodeScanning" spec="~> 7.0.0"/>
             </pods>
         </podspec>
 
-        <!-- Swift support -->
-        <preference name="USESWIFTLANGUAGEVERSION" default="5"/>
-        <dependency id="cordova-plugin-add-swift-support" version="^2.0.2"/>
+        <!-- Swift support - cordova-ios 7.x/8.x has built-in Swift support -->
+        <preference name="SWIFT_VERSION" default="5.0"/>
     </platform>
 
     <!-- Android Platform -->

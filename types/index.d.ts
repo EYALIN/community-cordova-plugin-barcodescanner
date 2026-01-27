@@ -40,6 +40,15 @@ export interface BarcodeScannerOptions {
 
     /** How long to display the result after a successful scan (ms). Default: 500 */
     resultDisplayDuration?: number;
+
+    /** Screen orientation for scanner (Android only). Default: unset (rotates with device) */
+    orientation?: 'portrait' | 'landscape';
+
+    /** Disable animations (iOS only). Default: false */
+    disableAnimations?: boolean;
+
+    /** Disable success beep sound (iOS only). Default: false */
+    disableSuccessBeep?: boolean;
 }
 
 /**
