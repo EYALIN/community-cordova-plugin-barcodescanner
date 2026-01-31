@@ -1,6 +1,6 @@
 {
   "name": "community-cordova-plugin-barcodescanner",
-  "version": "2.0.7",
+  "version": "2.0.8",
   "description": "Community Cordova BarcodeScanner Plugin - Scan barcodes and QR codes using Google ML Kit",
   "main": "./types/index.d.ts",
   "types": "./types/index.d.ts",

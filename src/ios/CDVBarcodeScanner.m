@@ -10,14 +10,15 @@
 // Forward declaration for Swift class
 @class BarcodeScannerViewController;
 
-@interface CDVBarcodeScanner () <BarcodeScannerDelegate>
-@property (nonatomic, strong) NSString *callbackId;
-@end
-
+// Protocol must be declared before it's used in interface
 @protocol BarcodeScannerDelegate <NSObject>
 - (void)barcodeScannerDidCancel;
 - (void)barcodeScannerDidFailWithError:(NSString *)error;
 - (void)barcodeScannerDidScanBarcode:(NSString *)value format:(NSString *)format type:(NSString *)type;
+@end
+
+@interface CDVBarcodeScanner () <BarcodeScannerDelegate>
+@property (nonatomic, strong) NSString *callbackId;
 @end
 
 @implementation CDVBarcodeScanner
