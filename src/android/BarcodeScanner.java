@@ -98,6 +98,13 @@ public class BarcodeScanner extends CordovaPlugin {
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent intent) {
         if (requestCode == REQUEST_CODE_SCAN) {
+            // Android can kill our process while the scanner activity is in the foreground. The
+            // plugin is then recreated and this callback arrives with no callbackContext, so every
+            // success()/error() below would NPE. Nothing is waiting on the JS side either, since
+            // that page was destroyed with the process — drop the result instead of crashing.
+            if (callbackContext == null) {
+                return;
+            }
             if (resultCode == Activity.RESULT_OK && intent != null) {
                 try {
                     JSONObject result = new JSONObject();
