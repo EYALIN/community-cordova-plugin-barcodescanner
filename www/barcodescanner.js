@@ -124,6 +124,42 @@ var BarcodeScannerPlugin = {
      */
     isScanning: function() {
         return scanInProgress;
+    },
+
+    /**
+     * APP-224: decode every barcode found in an already-captured image file (upload / share flow),
+     * using native ML Kit (Android) / Vision (iOS) instead of a live camera session.
+     * @param {string} path File path (or content:// / file:// URI on Android) of the image to decode
+     * @param {Function} successCallback Called with an array of result objects ({text, format, type, cancelled:false})
+     * @param {Function} errorCallback Called with an error message string
+     */
+    decodeFile: function(path, successCallback, errorCallback) {
+        if (typeof successCallback !== "function") {
+            console.error("BarcodeScanner.decodeFile: success callback must be a function");
+            return;
+        }
+        if (errorCallback == null) {
+            errorCallback = function() {};
+        }
+        cordova.exec(successCallback, errorCallback, PLUGIN_NAME, "decodeFile", [path]);
+    },
+
+    /**
+     * APP-224: returns (and clears) the result of an image shared into the app via the OS share
+     * sheet ("Share to Barcode Reader"), or null if there is none pending. Android only for now —
+     * the iOS share extension is tracked separately.
+     * @param {Function} successCallback Called with { codes: [...], error: string|null } or null
+     * @param {Function} errorCallback Called with an error message string
+     */
+    getPendingShare: function(successCallback, errorCallback) {
+        if (typeof successCallback !== "function") {
+            console.error("BarcodeScanner.getPendingShare: success callback must be a function");
+            return;
+        }
+        if (errorCallback == null) {
+            errorCallback = function() {};
+        }
+        cordova.exec(successCallback, errorCallback, PLUGIN_NAME, "getPendingShare", []);
     }
 };
 

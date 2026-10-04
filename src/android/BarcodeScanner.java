@@ -7,9 +7,20 @@ package com.anthropic.community.barcodescanner;
 
 import android.Manifest;
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.util.Log;
+
+import androidx.annotation.NonNull;
+
+import com.google.android.gms.tasks.Task;
+import com.google.mlkit.vision.barcode.BarcodeScannerOptions;
+import com.google.mlkit.vision.barcode.BarcodeScanning;
+import com.google.mlkit.vision.barcode.common.Barcode;
+import com.google.mlkit.vision.common.InputImage;
 
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.CordovaPlugin;
@@ -19,12 +30,25 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.IOException;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
 public class BarcodeScanner extends CordovaPlugin {
     private static final String TAG = "BarcodeScanner";
     private static final int REQUEST_CODE_SCAN = 49374;
     private static final int PERMISSION_REQUEST_CAMERA = 1;
 
     private static final String ACTION_SCAN = "scan";
+    private static final String ACTION_DECODE_FILE = "decodeFile";
+    private static final String ACTION_GET_PENDING_SHARE = "getPendingShare";
+
+    // APP-224: pending result of an image shared into the app via ACTION_SEND/ACTION_SEND_MULTIPLE,
+    // written by ShareReceiverActivity and consumed exactly once by getPendingShare(). SharedPreferences
+    // (not a static field) because the share activity and the WebView activity can run in separate
+    // plugin instances / after a process restart.
+    public static final String PENDING_SHARE_PREFS = "barcodescanner_pending_share";
+    public static final String PENDING_SHARE_KEY = "pending_result";
 
     private CallbackContext callbackContext;
     private JSONObject scanOptions;
@@ -47,7 +71,138 @@ public class BarcodeScanner extends CordovaPlugin {
             return true;
         }
 
+        if (ACTION_DECODE_FILE.equals(action)) {
+            final String path = args.optString(0, null);
+            final CallbackContext decodeCallback = callbackContext;
+            cordova.getThreadPool().execute(() -> decodeFile(path, decodeCallback));
+            return true;
+        }
+
+        if (ACTION_GET_PENDING_SHARE.equals(action)) {
+            JSONObject pending = readAndClearPendingShare(cordova.getActivity());
+            if (pending != null) {
+                callbackContext.success(pending);
+            } else {
+                callbackContext.success((JSONObject) null);
+            }
+            return true;
+        }
+
         return false;
+    }
+
+    /**
+     * APP-224: decode every barcode found in an arbitrary image file (from the share/upload path)
+     * using ML Kit's still-image API, instead of the live-camera `scan()` flow above. Supports any
+     * format BitmapFactory can load (JPEG/PNG/WebP/HEIC on API 28+); multiple codes in one image are
+     * all returned. Runs on the Cordova thread pool (never the UI thread) and blocks that worker
+     * thread on a latch because the plugin's execute() contract expects a single callback result -
+     * ML Kit's Task is otherwise async-only.
+     */
+    private void decodeFile(String path, CallbackContext cb) {
+        if (path == null || path.isEmpty()) {
+            cb.error("decodeFile: missing file path");
+            return;
+        }
+        try {
+            Uri uri = path.startsWith("content://") || path.startsWith("file://")
+                    ? Uri.parse(path) : Uri.fromFile(new java.io.File(path));
+            InputImage image = InputImage.fromFilePath(cordova.getActivity(), uri);
+
+            BarcodeScannerOptions options = new BarcodeScannerOptions.Builder().build();
+            final JSONArray results = new JSONArray();
+            final Exception[] failure = new Exception[1];
+            final CountDownLatch latch = new CountDownLatch(1);
+
+            Task<java.util.List<Barcode>> task = BarcodeScanning.getClient(options).process(image);
+            task.addOnSuccessListener(barcodes -> {
+                for (Barcode barcode : barcodes) {
+                    try {
+                        JSONObject result = new JSONObject();
+                        result.put("text", barcode.getRawValue() != null ? barcode.getRawValue() : "");
+                        result.put("format", formatName(barcode.getFormat()));
+                        result.put("type", valueTypeName(barcode.getValueType()));
+                        result.put("cancelled", false);
+                        results.put(result);
+                    } catch (JSONException e) {
+                        Log.e(TAG, "decodeFile: error building result", e);
+                    }
+                }
+                latch.countDown();
+            }).addOnFailureListener(e -> {
+                failure[0] = e;
+                latch.countDown();
+            });
+
+            latch.await(15, TimeUnit.SECONDS);
+
+            if (failure[0] != null) {
+                cb.error("decodeFile failed: " + failure[0].getMessage());
+                return;
+            }
+            cb.success(results);
+        } catch (IOException e) {
+            cb.error("decodeFile: unable to load image: " + e.getMessage());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            cb.error("decodeFile: interrupted");
+        } catch (Exception e) {
+            cb.error("decodeFile: " + e.getMessage());
+        }
+    }
+
+    static String formatName(int format) {
+        switch (format) {
+            case Barcode.FORMAT_QR_CODE: return "QR_CODE";
+            case Barcode.FORMAT_DATA_MATRIX: return "DATA_MATRIX";
+            case Barcode.FORMAT_UPC_A: return "UPC_A";
+            case Barcode.FORMAT_UPC_E: return "UPC_E";
+            case Barcode.FORMAT_EAN_8: return "EAN_8";
+            case Barcode.FORMAT_EAN_13: return "EAN_13";
+            case Barcode.FORMAT_CODE_39: return "CODE_39";
+            case Barcode.FORMAT_CODE_93: return "CODE_93";
+            case Barcode.FORMAT_CODE_128: return "CODE_128";
+            case Barcode.FORMAT_CODABAR: return "CODABAR";
+            case Barcode.FORMAT_ITF: return "ITF";
+            case Barcode.FORMAT_PDF417: return "PDF_417";
+            case Barcode.FORMAT_AZTEC: return "AZTEC";
+            default: return "UNKNOWN";
+        }
+    }
+
+    static String valueTypeName(int valueType) {
+        switch (valueType) {
+            case Barcode.TYPE_URL: return "URL";
+            case Barcode.TYPE_EMAIL: return "EMAIL";
+            case Barcode.TYPE_PHONE: return "PHONE";
+            case Barcode.TYPE_SMS: return "SMS";
+            case Barcode.TYPE_WIFI: return "WIFI";
+            case Barcode.TYPE_GEO: return "GEO";
+            case Barcode.TYPE_CONTACT_INFO: return "CONTACT";
+            case Barcode.TYPE_CALENDAR_EVENT: return "CALENDAR";
+            case Barcode.TYPE_DRIVER_LICENSE: return "DRIVER_LICENSE";
+            case Barcode.TYPE_ISBN: return "ISBN";
+            case Barcode.TYPE_PRODUCT: return "PRODUCT";
+            default: return "TEXT";
+        }
+    }
+
+    /**
+     * Reads (and clears) the result cached by ShareReceiverActivity, if any. Package-visible static
+     * so ShareReceiverActivity can write it without needing a plugin instance.
+     */
+    static JSONObject readAndClearPendingShare(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences(PENDING_SHARE_PREFS, Context.MODE_PRIVATE);
+        String json = prefs.getString(PENDING_SHARE_KEY, null);
+        if (json == null) {
+            return null;
+        }
+        prefs.edit().remove(PENDING_SHARE_KEY).apply();
+        try {
+            return new JSONObject(json);
+        } catch (JSONException e) {
+            return null;
+        }
     }
 
     private boolean hasPermission() {

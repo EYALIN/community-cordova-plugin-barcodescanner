@@ -8,7 +8,7 @@
     xmlns="http://apache.org/cordova/ns/plugins/1.0"
     xmlns:android="http://schemas.android.com/apk/res/android"
     id="community-cordova-plugin-barcodescanner"
-    version="2.2.1">
+    version="2.3.0">
 
     <name>BarcodeScanner</name>
     <description>Community Cordova BarcodeScanner Plugin - Scan barcodes and QR codes using Google ML Kit</description>
@@ -47,6 +47,8 @@
         <framework src="AVFoundation.framework"/>
         <framework src="AudioToolbox.framework"/>
         <framework src="CoreMedia.framework"/>
+        <!-- APP-224: decodeFile() uses Vision, not ML Kit, on iOS. -->
+        <framework src="Vision.framework"/>
 
         <!-- ML Kit via CocoaPods -->
         <podspec>
@@ -81,6 +83,34 @@
                 android:value="barcode"/>
         </config-file>
 
+        <!-- APP-224: "Share to Barcode Reader" — ACTION_SEND/ACTION_SEND_MULTIPLE for image/* and
+             application/pdf. ShareReceiverActivity decodes with ML Kit and hands the result back to
+             the JS side via getPendingShare(), then launches the app's own launcher activity. -->
+        <config-file target="AndroidManifest.xml" parent="/manifest/application">
+            <activity
+                android:name="com.anthropic.community.barcodescanner.ShareReceiverActivity"
+                android:theme="@android:style/Theme.Translucent.NoTitleBar"
+                android:exported="true"
+                android:excludeFromRecents="true"
+                android:noHistory="true">
+                <intent-filter>
+                    <action android:name="android.intent.action.SEND"/>
+                    <category android:name="android.intent.category.DEFAULT"/>
+                    <data android:mimeType="image/*"/>
+                </intent-filter>
+                <intent-filter>
+                    <action android:name="android.intent.action.SEND"/>
+                    <category android:name="android.intent.category.DEFAULT"/>
+                    <data android:mimeType="application/pdf"/>
+                </intent-filter>
+                <intent-filter>
+                    <action android:name="android.intent.action.SEND_MULTIPLE"/>
+                    <category android:name="android.intent.category.DEFAULT"/>
+                    <data android:mimeType="image/*"/>
+                </intent-filter>
+            </activity>
+        </config-file>
+
         <config-file target="AndroidManifest.xml" parent="/manifest">
             <uses-permission android:name="android.permission.CAMERA"/>
             <uses-feature android:name="android.hardware.camera" android:required="false"/>
@@ -89,6 +119,7 @@
 
         <source-file src="src/android/BarcodeScanner.java" target-dir="src/com/anthropic/community/barcodescanner"/>
         <source-file src="src/android/BarcodeScannerActivity.java" target-dir="src/com/anthropic/community/barcodescanner"/>
+        <source-file src="src/android/ShareReceiverActivity.java" target-dir="src/com/anthropic/community/barcodescanner"/>
 
         <resource-file src="src/android/res/layout/activity_barcode_scanner.xml" target="res/layout/activity_barcode_scanner.xml"/>
         <resource-file src="src/android/res/drawable/rounded_rectangle.xml" target="res/drawable/rounded_rectangle.xml"/>
