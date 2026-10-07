@@ -99,6 +99,11 @@ var BarcodeScannerPlugin = {
             if (typeof options.formats === "string") {
                 scanOptions.formats = options.formats.replace(/\s+/g, "");
             }
+            // APP-225: batch scan's "Done (N)" label. Without forwarding it here the native side
+            // never receives it and the Done button stays hidden.
+            if (typeof options.doneButtonLabel === "string" && options.doneButtonLabel) {
+                scanOptions.doneButtonLabel = options.doneButtonLabel;
+            }
         }
 
         scanInProgress = true;

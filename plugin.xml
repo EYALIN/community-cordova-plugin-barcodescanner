@@ -123,6 +123,7 @@
 
         <resource-file src="src/android/res/layout/activity_barcode_scanner.xml" target="res/layout/activity_barcode_scanner.xml"/>
         <resource-file src="src/android/res/drawable/rounded_rectangle.xml" target="res/drawable/rounded_rectangle.xml"/>
+        <resource-file src="src/android/res/drawable/done_button_background.xml" target="res/drawable/done_button_background.xml"/>
 
         <framework src="src/android/build.gradle" custom="true" type="gradleReference"/>
     </platform>

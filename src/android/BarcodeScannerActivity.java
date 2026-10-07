@@ -19,6 +19,7 @@ import android.util.Log;
 import android.util.Size;
 import android.view.View;
 import android.view.WindowManager;
+import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.TextView;
 
@@ -53,6 +54,7 @@ public class BarcodeScannerActivity extends AppCompatActivity {
     private View overlayTop, overlayBottom, overlayLeft, overlayRight;
     private ImageButton torchButton;
     private ImageButton closeButton;
+    private Button doneButton;
     private TextView promptText;
 
     private Camera camera;
@@ -71,6 +73,7 @@ public class BarcodeScannerActivity extends AppCompatActivity {
     private boolean vibrateOnSuccess = true;
     private double detectorSize = 0.6;
     private String formats = "";
+    private String doneButtonLabel = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -90,6 +93,7 @@ public class BarcodeScannerActivity extends AppCompatActivity {
         detectorSize = intent.getDoubleExtra("detectorSize", 0.6);
         formats = intent.getStringExtra("formats");
         if (formats == null) formats = "";
+        doneButtonLabel = intent.getStringExtra("doneButtonLabel");
 
         // Setup UI
         setupUI();
@@ -113,6 +117,7 @@ public class BarcodeScannerActivity extends AppCompatActivity {
         overlayRight = findViewById(getResources().getIdentifier("overlay_right", "id", getPackageName()));
         torchButton = findViewById(getResources().getIdentifier("torch_button", "id", getPackageName()));
         closeButton = findViewById(getResources().getIdentifier("close_button", "id", getPackageName()));
+        doneButton = findViewById(getResources().getIdentifier("done_button", "id", getPackageName()));
         promptText = findViewById(getResources().getIdentifier("prompt_text", "id", getPackageName()));
 
         // Set prompt text
@@ -131,6 +136,22 @@ public class BarcodeScannerActivity extends AppCompatActivity {
             setResult(Activity.RESULT_CANCELED);
             finish();
         });
+
+        // APP-225: batch scan mode - the Done button only appears when the JS side supplied a
+        // label (it computes "Done (N)" fresh on every one-shot relaunch, same as `prompt`), so a
+        // non-batch scan leaves this gone exactly as before.
+        if (doneButtonLabel != null) {
+            doneButton.setText(doneButtonLabel);
+            doneButton.setVisibility(View.VISIBLE);
+            doneButton.setOnClickListener(v -> {
+                Intent result = new Intent();
+                result.putExtra("DONE", true);
+                setResult(Activity.RESULT_CANCELED, result);
+                finish();
+            });
+        } else {
+            doneButton.setVisibility(View.GONE);
+        }
 
         // Setup scan area size after layout
         previewView.post(() -> {

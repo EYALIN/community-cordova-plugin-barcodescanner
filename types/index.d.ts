@@ -49,6 +49,11 @@ export interface BarcodeScannerOptions {
 
     /** Disable success beep sound (iOS only). Default: false */
     disableSuccessBeep?: boolean;
+
+    /** APP-225: show a "Done" button on the scan overlay with this label (e.g. "Done (3)"),
+     * for batch-scan callers that relaunch this one-shot scan per code and need a way to end
+     * the run from inside the native overlay. Omit for a normal, non-batch scan. */
+    doneButtonLabel?: string;
 }
 
 /**
@@ -66,6 +71,11 @@ export interface BarcodeScanResult {
 
     /** Whether the user cancelled the scan */
     cancelled: boolean;
+
+    /** APP-225: true when cancelled because the user tapped the batch-scan "Done" button,
+     * as opposed to the close (X) button or the system back gesture. Only meaningful when
+     * doneButtonLabel was passed in the scan options; absent/false otherwise. */
+    done?: boolean;
 }
 
 /**

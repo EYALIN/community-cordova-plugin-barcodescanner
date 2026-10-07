@@ -83,7 +83,13 @@ public class BarcodeScanner extends CordovaPlugin {
             if (pending != null) {
                 callbackContext.success(pending);
             } else {
-                callbackContext.success((JSONObject) null);
+                // Cordova's CallbackContext.success(JSONObject) calls message.toString() with no
+                // null guard, so a literal null throws a NullPointerException inside the plugin
+                // bridge (PluginManager then swallows it uncaught and never invokes the JS
+                // callback at all - the exec() promise hangs forever instead of resolving null,
+                // which hung every app startup that awaits getPendingShare()). Use the no-arg
+                // success() so "nothing pending" actually resolves on the JS side.
+                callbackContext.success();
             }
             return true;
         }
@@ -243,6 +249,14 @@ public class BarcodeScanner extends CordovaPlugin {
             intent.putExtra("overlayColor", scanOptions.optString("overlayColor", "#000000"));
             intent.putExtra("overlayOpacity", scanOptions.optDouble("overlayOpacity", 0.5));
 
+            // APP-225: batch scan mode re-launches this one-shot activity per code, so the running
+            // count/label are passed fresh on every launch, same pattern as `prompt` above. When
+            // doneButtonLabel is absent (every pre-existing, non-batch call site) the Done button
+            // stays hidden and the activity is byte-identical to before.
+            if (scanOptions.has("doneButtonLabel") && !scanOptions.isNull("doneButtonLabel")) {
+                intent.putExtra("doneButtonLabel", scanOptions.optString("doneButtonLabel"));
+            }
+
         } catch (Exception e) {
             Log.e(TAG, "Error parsing options", e);
         }
@@ -277,6 +291,10 @@ public class BarcodeScanner extends CordovaPlugin {
                     result.put("text", "");
                     result.put("format", "");
                     result.put("cancelled", true);
+                    // APP-225: distinguishes "tapped Done" from "tapped X / pressed back" - both end
+                    // a batch run the same way on the JS side, but this keeps that attribution honest
+                    // instead of logging every batch-ending Done tap as reason: 'user_back'.
+                    result.put("done", intent != null && intent.getBooleanExtra("DONE", false));
                     callbackContext.success(result);
                 } catch (JSONException e) {
                     callbackContext.error("Error creating result: " + e.getMessage());

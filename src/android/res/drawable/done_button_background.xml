@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- APP-225: solid white pill for the batch-scan "Done (N)" button. rounded_rectangle is a
+     transparent, stroke-only shape, so a tint on it left black text on the black overlay. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <corners android:radius="24dp" />
+    <solid android:color="#FFFFFF" />
+</shape>
