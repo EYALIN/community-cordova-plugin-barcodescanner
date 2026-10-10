@@ -98,11 +98,17 @@ public class BarcodeScanner extends CordovaPlugin {
         return false;
     }
 
+    /** Total time budget for the tiled re-scan passes of decodeFile. */
+    private static final long TILE_DEADLINE_MS = 20000;
+
     /**
      * APP-224: decode every barcode found in an arbitrary image file (from the share/upload path)
      * using ML Kit's still-image API, instead of the live-camera `scan()` flow above. Supports any
      * format BitmapFactory can load (JPEG/PNG/WebP/HEIC on API 28+); multiple codes in one image are
-     * all returned. Runs on the Cordova thread pool (never the UI thread) and blocks that worker
+     * all returned. After the whole-image pass, overlapping tiles are re-scanned (ML Kit often reports
+     * only the strongest of several codes); a failing tile never discards earlier results and the tile
+     * passes share a {@link #TILE_DEADLINE_MS} budget, after which whatever was collected is returned.
+     * Runs on the Cordova thread pool (never the UI thread) and blocks that worker
      * thread on a latch because the plugin's execute() contract expects a single callback result -
      * ML Kit's Task is otherwise async-only.
      */
@@ -120,34 +126,47 @@ public class BarcodeScanner extends CordovaPlugin {
             com.google.mlkit.vision.barcode.BarcodeScanner scanner = BarcodeScanning.getClient(options);
             final JSONArray results = new JSONArray();
             final java.util.Set<String> seen = new java.util.HashSet<>();
+            try {
+                // Pass 1: the whole image. A failure here is a real decode failure.
+                collectBarcodes(scanner, image, results, seen);
 
-            // Pass 1: the whole image.
-            collectBarcodes(scanner, image, results, seen);
-
-            // Pass 2 (APP-224): ML Kit's still-image detector frequently reports only ONE of several
-            // codes when they sit in one photo (it locks onto the strongest). Re-scan overlapping
-            // tiles - halves and quadrants - and merge new codes, deduped by format + raw value.
-            Bitmap bitmap = image.getBitmapInternal();
-            if (bitmap != null) {
-                int w = bitmap.getWidth(), h = bitmap.getHeight();
-                int[][] grid = {{2, 1}, {1, 2}, {2, 2}, {3, 3}};
-                for (int[] g : grid) {
-                    int cols = g[0], rows = g[1];
-                    int tw = w / cols, th = h / rows;
-                    int ox = cols > 1 ? tw / 4 : 0, oy = rows > 1 ? th / 4 : 0;
-                    for (int r = 0; r < rows; r++) {
-                        for (int c = 0; c < cols; c++) {
-                            int x = Math.max(0, c * tw - ox), y = Math.max(0, r * th - oy);
-                            int cw = Math.min(w - x, tw + 2 * ox), ch = Math.min(h - y, th + 2 * oy);
-                            if (cw < 32 || ch < 32) continue;
-                            Bitmap tile = Bitmap.createBitmap(bitmap, x, y, cw, ch);
-                            collectBarcodes(scanner, InputImage.fromBitmap(tile, 0), results, seen);
-                            if (tile != bitmap) tile.recycle();
+                // Pass 2 (APP-224): overlapping tiles - halves, quadrants, 3x3 - merged and deduped by
+                // format + raw value. Best effort: errors per tile are logged and skipped.
+                Bitmap bitmap = image.getBitmapInternal();
+                long deadline = System.currentTimeMillis() + TILE_DEADLINE_MS;
+                if (bitmap != null) {
+                    int w = bitmap.getWidth(), h = bitmap.getHeight();
+                    int[][] grid = {{2, 1}, {1, 2}, {2, 2}, {3, 3}};
+                    tiles:
+                    for (int[] g : grid) {
+                        int cols = g[0], rows = g[1];
+                        int tw = w / cols, th = h / rows;
+                        int ox = cols > 1 ? tw / 4 : 0, oy = rows > 1 ? th / 4 : 0;
+                        for (int r = 0; r < rows; r++) {
+                            for (int c = 0; c < cols; c++) {
+                                if (System.currentTimeMillis() > deadline) {
+                                    Log.w(TAG, "decodeFile: tile deadline reached, returning what was found");
+                                    break tiles;
+                                }
+                                int x = Math.max(0, c * tw - ox), y = Math.max(0, r * th - oy);
+                                int cw = Math.min(w - x, tw + 2 * ox), ch = Math.min(h - y, th + 2 * oy);
+                                if (cw < 32 || ch < 32) continue;
+                                Bitmap tile = null;
+                                try {
+                                    tile = Bitmap.createBitmap(bitmap, x, y, cw, ch);
+                                    collectBarcodes(scanner, InputImage.fromBitmap(tile, 0), results, seen);
+                                } catch (Exception e) {
+                                    Log.w(TAG, "decodeFile: tile scan failed, skipping", e);
+                                } finally {
+                                    if (tile != null && tile != bitmap) tile.recycle();
+                                }
+                            }
                         }
                     }
                 }
+            } finally {
+                scanner.close();
             }
-            scanner.close();
             Log.i(TAG, "decodeFile: " + results.length() + " code(s)");
             cb.success(results);
         } catch (IOException e) {

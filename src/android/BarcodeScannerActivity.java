@@ -325,6 +325,11 @@ public class BarcodeScannerActivity extends AppCompatActivity {
 
     private void onBarcodeDetected(Barcode barcode) {
         runOnUiThread(() -> {
+            // A close (X / Done / back) may already be in flight; never overwrite its result.
+            if (isFinishing()) {
+                return;
+            }
+            isScanning = false;
             // Feedback
             if (beepOnSuccess) {
                 playBeep();
@@ -459,7 +464,6 @@ public class BarcodeScannerActivity extends AppCompatActivity {
 
     @Override
     public void onBackPressed() {
-        setResult(Activity.RESULT_CANCELED);
-        super.onBackPressed();
+        closeScanner(null);
     }
 }

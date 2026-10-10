@@ -52,6 +52,23 @@ import MLKitVision
         setupCamera()
     }
 
+    public override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        // Safe-area insets are only final here (not in viewDidLoad), so place the Done pill now.
+        layoutDoneButton()
+    }
+
+    private func layoutDoneButton() {
+        guard !doneButtonLabel.isEmpty else { return }
+        let doneWidth = max(doneButton.bounds.width, 120)
+        doneButton.frame = CGRect(
+            x: (view.bounds.width - doneWidth) / 2,
+            y: view.bounds.height - view.safeAreaInsets.bottom - 48 - 32,
+            width: doneWidth,
+            height: 48
+        )
+    }
+
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
 
@@ -136,15 +153,7 @@ import MLKitVision
             doneButton.layer.cornerRadius = 24
             doneButton.contentEdgeInsets = UIEdgeInsets(top: 12, left: 24, bottom: 12, right: 24)
             doneButton.sizeToFit()
-            let doneWidth = max(doneButton.bounds.width, 120)
-            let bottomInset = view.safeAreaInsets.bottom
-            doneButton.frame = CGRect(
-                x: (view.bounds.width - doneWidth) / 2,
-                y: view.bounds.height - bottomInset - 48 - 32,
-                width: doneWidth,
-                height: 48
-            )
-            doneButton.autoresizingMask = [.flexibleLeftMargin, .flexibleRightMargin, .flexibleTopMargin]
+            layoutDoneButton()
             doneButton.addTarget(self, action: #selector(doneButtonTapped), for: .touchUpInside)
         }
 

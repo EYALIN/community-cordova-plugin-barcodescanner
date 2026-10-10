@@ -15,21 +15,6 @@
 @protocol BarcodeScannerDelegate <NSObject>
 - (void)barcodeScannerDidCancel;
 - (void)barcodeScannerDidTapDone;
-- (void)barcodeScannerDidTapDone {
-    [self.viewController dismissViewControllerAnimated:YES completion:nil];
-
-    // APP-225: same shape as a cancel, plus done=true so the caller can tell Done from X/back.
-    NSDictionary *result = @{
-        @"text": @"",
-        @"format": @"",
-        @"cancelled": @YES,
-        @"done": @YES
-    };
-
-    CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:result];
-    [self.commandDelegate sendPluginResult:pluginResult callbackId:self.callbackId];
-}
-
 - (void)barcodeScannerDidFailWithError:(NSString *)error;
 - (void)barcodeScannerDidScanBarcode:(NSString *)value format:(NSString *)format type:(NSString *)type;
 @end
@@ -184,6 +169,21 @@
 }
 
 #pragma mark - BarcodeScannerDelegate
+
+- (void)barcodeScannerDidTapDone {
+    [self.viewController dismissViewControllerAnimated:YES completion:nil];
+
+    // APP-225: same shape as a cancel, plus done=true so the caller can tell Done from X/back.
+    NSDictionary *result = @{
+        @"text": @"",
+        @"format": @"",
+        @"cancelled": @YES,
+        @"done": @YES
+    };
+
+    CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:result];
+    [self.commandDelegate sendPluginResult:pluginResult callbackId:self.callbackId];
+}
 
 - (void)barcodeScannerDidCancel {
     [self.viewController dismissViewControllerAnimated:YES completion:nil];
