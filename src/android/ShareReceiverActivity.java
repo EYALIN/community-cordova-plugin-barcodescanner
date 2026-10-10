@@ -67,17 +67,21 @@ public class ShareReceiverActivity extends Activity {
             }
         }
 
-        JSONObject resultPayload;
-        if (sharedUri == null) {
-            resultPayload = errorPayload("No shared image found");
-        } else {
-            String mimeType = intent.getType();
-            resultPayload = decodeShared(sharedUri, mimeType);
-        }
-
-        writePendingShare(resultPayload);
-        launchApp();
-        finish();
+        // APP-224: Tasks.await() throws IllegalStateException on the main thread, so every share
+        // used to fail with "Could not decode the shared image". Decode on a worker thread; the
+        // activity stays alive (no UI, translucent) until the pending payload is written.
+        final Uri finalUri = sharedUri;
+        final String mimeType = intent != null ? intent.getType() : null;
+        new Thread(() -> {
+            JSONObject resultPayload = finalUri == null
+                    ? errorPayload("No shared image found")
+                    : decodeShared(finalUri, mimeType);
+            writePendingShare(resultPayload);
+            runOnUiThread(() -> {
+                launchApp();
+                finish();
+            });
+        }, "share-decode").start();
     }
 
     private JSONObject decodeShared(Uri uri, String mimeType) {
