@@ -14,6 +14,22 @@
 // Protocol must be declared before it's used in interface
 @protocol BarcodeScannerDelegate <NSObject>
 - (void)barcodeScannerDidCancel;
+- (void)barcodeScannerDidTapDone;
+- (void)barcodeScannerDidTapDone {
+    [self.viewController dismissViewControllerAnimated:YES completion:nil];
+
+    // APP-225: same shape as a cancel, plus done=true so the caller can tell Done from X/back.
+    NSDictionary *result = @{
+        @"text": @"",
+        @"format": @"",
+        @"cancelled": @YES,
+        @"done": @YES
+    };
+
+    CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:result];
+    [self.commandDelegate sendPluginResult:pluginResult callbackId:self.callbackId];
+}
+
 - (void)barcodeScannerDidFailWithError:(NSString *)error;
 - (void)barcodeScannerDidScanBarcode:(NSString *)value format:(NSString *)format type:(NSString *)type;
 @end
@@ -89,6 +105,10 @@
         }
         if (options[@"formats"]) {
             [scanner setValue:options[@"formats"] forKey:@"formats"];
+        }
+        // APP-225: batch scan "Done (N)" label; absent for every non-batch call
+        if ([options[@"doneButtonLabel"] isKindOfClass:[NSString class]] && [options[@"doneButtonLabel"] length] > 0) {
+            [scanner setValue:options[@"doneButtonLabel"] forKey:@"doneButtonLabel"];
         }
     } @catch (NSException *exception) {
         NSLog(@"Error setting scanner options: %@", exception);

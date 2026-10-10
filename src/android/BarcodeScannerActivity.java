@@ -133,8 +133,8 @@ public class BarcodeScannerActivity extends AppCompatActivity {
 
         // Setup close button
         closeButton.setOnClickListener(v -> {
-            setResult(Activity.RESULT_CANCELED);
-            finish();
+            Log.i(TAG, "close (X) tapped");
+            closeScanner(null);
         });
 
         // APP-225: batch scan mode - the Done button only appears when the JS side supplied a
@@ -144,10 +144,10 @@ public class BarcodeScannerActivity extends AppCompatActivity {
             doneButton.setText(doneButtonLabel);
             doneButton.setVisibility(View.VISIBLE);
             doneButton.setOnClickListener(v -> {
+                Log.i(TAG, "Done tapped: " + doneButtonLabel);
                 Intent result = new Intent();
                 result.putExtra("DONE", true);
-                setResult(Activity.RESULT_CANCELED, result);
-                finish();
+                closeScanner(result);
             });
         } else {
             doneButton.setVisibility(View.GONE);
@@ -164,6 +164,29 @@ public class BarcodeScannerActivity extends AppCompatActivity {
             scanArea.getLayoutParams().height = scanSize;
             scanArea.requestLayout();
         });
+    }
+
+    /**
+     * APP-225: leave the scanner the moment X / Done is tapped. The ML Kit analyzer keeps the
+     * (emulator and low-end) CPU saturated, so the camera is released and the buttons are
+     * disabled here instead of waiting for onDestroy; a second tap is ignored.
+     */
+    private void closeScanner(Intent resultData) {
+        if (isFinishing()) {
+            return;
+        }
+        isScanning = false;
+        closeButton.setEnabled(false);
+        doneButton.setEnabled(false);
+        try {
+            if (cameraProvider != null) {
+                cameraProvider.unbindAll();
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "unbindAll on close failed", e);
+        }
+        setResult(Activity.RESULT_CANCELED, resultData);
+        finish();
     }
 
     private void setupBarcodeScanner() {

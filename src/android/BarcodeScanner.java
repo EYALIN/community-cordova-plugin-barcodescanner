@@ -11,6 +11,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.net.Uri;
 import android.util.Log;
 
@@ -116,44 +117,61 @@ public class BarcodeScanner extends CordovaPlugin {
             InputImage image = InputImage.fromFilePath(cordova.getActivity(), uri);
 
             BarcodeScannerOptions options = new BarcodeScannerOptions.Builder().build();
+            com.google.mlkit.vision.barcode.BarcodeScanner scanner = BarcodeScanning.getClient(options);
             final JSONArray results = new JSONArray();
-            final Exception[] failure = new Exception[1];
-            final CountDownLatch latch = new CountDownLatch(1);
+            final java.util.Set<String> seen = new java.util.HashSet<>();
 
-            Task<java.util.List<Barcode>> task = BarcodeScanning.getClient(options).process(image);
-            task.addOnSuccessListener(barcodes -> {
-                for (Barcode barcode : barcodes) {
-                    try {
-                        JSONObject result = new JSONObject();
-                        result.put("text", barcode.getRawValue() != null ? barcode.getRawValue() : "");
-                        result.put("format", formatName(barcode.getFormat()));
-                        result.put("type", valueTypeName(barcode.getValueType()));
-                        result.put("cancelled", false);
-                        results.put(result);
-                    } catch (JSONException e) {
-                        Log.e(TAG, "decodeFile: error building result", e);
+            // Pass 1: the whole image.
+            collectBarcodes(scanner, image, results, seen);
+
+            // Pass 2 (APP-224): ML Kit's still-image detector frequently reports only ONE of several
+            // codes when they sit in one photo (it locks onto the strongest). Re-scan overlapping
+            // tiles - halves and quadrants - and merge new codes, deduped by format + raw value.
+            Bitmap bitmap = image.getBitmapInternal();
+            if (bitmap != null) {
+                int w = bitmap.getWidth(), h = bitmap.getHeight();
+                int[][] grid = {{2, 1}, {1, 2}, {2, 2}, {3, 3}};
+                for (int[] g : grid) {
+                    int cols = g[0], rows = g[1];
+                    int tw = w / cols, th = h / rows;
+                    int ox = cols > 1 ? tw / 4 : 0, oy = rows > 1 ? th / 4 : 0;
+                    for (int r = 0; r < rows; r++) {
+                        for (int c = 0; c < cols; c++) {
+                            int x = Math.max(0, c * tw - ox), y = Math.max(0, r * th - oy);
+                            int cw = Math.min(w - x, tw + 2 * ox), ch = Math.min(h - y, th + 2 * oy);
+                            if (cw < 32 || ch < 32) continue;
+                            Bitmap tile = Bitmap.createBitmap(bitmap, x, y, cw, ch);
+                            collectBarcodes(scanner, InputImage.fromBitmap(tile, 0), results, seen);
+                            if (tile != bitmap) tile.recycle();
+                        }
                     }
                 }
-                latch.countDown();
-            }).addOnFailureListener(e -> {
-                failure[0] = e;
-                latch.countDown();
-            });
-
-            latch.await(15, TimeUnit.SECONDS);
-
-            if (failure[0] != null) {
-                cb.error("decodeFile failed: " + failure[0].getMessage());
-                return;
             }
+            scanner.close();
+            Log.i(TAG, "decodeFile: " + results.length() + " code(s)");
             cb.success(results);
         } catch (IOException e) {
             cb.error("decodeFile: unable to load image: " + e.getMessage());
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            cb.error("decodeFile: interrupted");
         } catch (Exception e) {
             cb.error("decodeFile: " + e.getMessage());
+        }
+    }
+
+    /** Runs one blocking ML Kit pass (worker thread only) and appends codes not already in {@code seen}. */
+    private void collectBarcodes(com.google.mlkit.vision.barcode.BarcodeScanner scanner, InputImage image,
+                                 JSONArray results, java.util.Set<String> seen) throws Exception {
+        java.util.List<Barcode> barcodes = com.google.android.gms.tasks.Tasks.await(
+                scanner.process(image), 15, TimeUnit.SECONDS);
+        for (Barcode barcode : barcodes) {
+            String text = barcode.getRawValue() != null ? barcode.getRawValue() : "";
+            String format = formatName(barcode.getFormat());
+            if (!seen.add(format + "|" + text)) continue;
+            JSONObject result = new JSONObject();
+            result.put("text", text);
+            result.put("format", format);
+            result.put("type", valueTypeName(barcode.getValueType()));
+            result.put("cancelled", false);
+            results.put(result);
         }
     }
 

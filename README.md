@@ -112,6 +112,7 @@ The success callback receives a result object:
     format: string;     // Barcode format (e.g., "QR_CODE", "EAN_13")
     type: string;       // Value type (e.g., "URL", "EMAIL", "TEXT")
     cancelled: boolean; // true if user cancelled the scan
+    done?: boolean;     // true when the batch-scan "Done" pill was tapped (cancelled is also true); absent for X/back
 }
 ```
 
@@ -126,6 +127,7 @@ The success callback receives a result object:
 | `vibrateOnSuccess` | boolean | `true` | Vibrate on successful scan |
 | `detectorSize` | number | `0.6` | Scan area size (0.1 to 1.0) |
 | `formats` | string | all | Comma-separated barcode formats |
+| `doneButtonLabel` | string | none | Batch scan: when set, a white "Done" pill with this (already translated) label is shown at the bottom centre on Android and iOS. Tapping it closes the scanner with `{ cancelled: true, done: true }`; X / back return `{ cancelled: true }` without `done`. |
 
 ## Supported Barcode Formats
 
@@ -222,6 +224,17 @@ If you're upgrading from the ZXing-based version:
 - `detectorSize` option for scan area
 - `vibrateOnSuccess` option
 - Modern ML Kit scanning engine
+
+## Release notes
+
+### 2.3.0 (unreleased additions)
+
+- Android `decodeFile`: after the whole-image pass, overlapping tiles (halves, quadrants, 3x3) are re-scanned and merged (deduped by format + text), so an image holding several codes returns all of them instead of only the strongest one (APP-224).
+- Android batch camera: X and Done close through one path that unbinds the camera and disables both buttons immediately, so a tap during slow teardown cannot be lost or doubled (APP-225).
+
+- `doneButtonLabel` option and `result.done`: batch-scan "Done (N)" pill on Android and iOS, distinct from the X / back cancel.
+- `getPendingShare()` returns a plain success when nothing is pending.
+- `decodeFile()` returns every barcode found in an image file.
 
 ## License
 

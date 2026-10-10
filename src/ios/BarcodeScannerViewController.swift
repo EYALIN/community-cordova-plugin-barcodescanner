@@ -11,6 +11,8 @@ import MLKitVision
 
 @objc public protocol BarcodeScannerDelegate: AnyObject {
     func barcodeScannerDidCancel()
+    /// APP-225: the batch-scan "Done (N)" pill was tapped (cancelled result with done=true).
+    func barcodeScannerDidTapDone()
     func barcodeScannerDidFailWithError(_ error: String)
     func barcodeScannerDidScanBarcode(_ value: String, format: String, type: String)
 }
@@ -24,6 +26,8 @@ import MLKitVision
     @objc public var beepOnSuccess: Bool = true
     @objc public var vibrateOnSuccess: Bool = true
     @objc public var formats: String = ""
+    /// APP-225: when non-empty a "Done (N)" pill is shown; tapping it ends a batch run (result.done = true).
+    @objc public var doneButtonLabel: String = ""
 
     // MARK: - Private Properties
     private var captureSession: AVCaptureSession?
@@ -37,6 +41,7 @@ import MLKitVision
     private let promptLabel = UILabel()
     private let closeButton = UIButton(type: .system)
     private let torchButton = UIButton(type: .system)
+    private let doneButton = UIButton(type: .system)
 
     // MARK: - Lifecycle
 
@@ -122,6 +127,27 @@ import MLKitVision
             height: labelHeight
         )
 
+        // APP-225: Done pill (batch scan only) - white, bottom centre, same look as Android
+        if !doneButtonLabel.isEmpty {
+            doneButton.setTitle(doneButtonLabel, for: .normal)
+            doneButton.setTitleColor(.black, for: .normal)
+            doneButton.titleLabel?.font = UIFont.systemFont(ofSize: 16, weight: .semibold)
+            doneButton.backgroundColor = .white
+            doneButton.layer.cornerRadius = 24
+            doneButton.contentEdgeInsets = UIEdgeInsets(top: 12, left: 24, bottom: 12, right: 24)
+            doneButton.sizeToFit()
+            let doneWidth = max(doneButton.bounds.width, 120)
+            let bottomInset = view.safeAreaInsets.bottom
+            doneButton.frame = CGRect(
+                x: (view.bounds.width - doneWidth) / 2,
+                y: view.bounds.height - bottomInset - 48 - 32,
+                width: doneWidth,
+                height: 48
+            )
+            doneButton.autoresizingMask = [.flexibleLeftMargin, .flexibleRightMargin, .flexibleTopMargin]
+            doneButton.addTarget(self, action: #selector(doneButtonTapped), for: .touchUpInside)
+        }
+
         // Add overlay views
         createOverlayMask()
 
@@ -130,6 +156,9 @@ import MLKitVision
         view.addSubview(promptLabel)
         view.addSubview(closeButton)
         view.addSubview(torchButton)
+        if !doneButtonLabel.isEmpty {
+            view.addSubview(doneButton)
+        }
     }
 
     private func addCornerIndicators(to containerView: UIView) {
@@ -279,6 +308,11 @@ import MLKitVision
     @objc private func closeButtonTapped() {
         captureSession?.stopRunning()
         delegate?.barcodeScannerDidCancel()
+    }
+
+    @objc private func doneButtonTapped() {
+        captureSession?.stopRunning()
+        delegate?.barcodeScannerDidTapDone()
     }
 
     @objc private func torchButtonTapped() {
