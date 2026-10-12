@@ -233,7 +233,9 @@ If you're upgrading from the ZXing-based version:
 - Android batch camera: X and Done close through one path that unbinds the camera and disables both buttons immediately, so a tap during slow teardown cannot be lost or doubled (APP-225).
 
 - `doneButtonLabel` option and `result.done`: batch-scan "Done (N)" pill on Android and iOS, distinct from the X / back cancel.
-- `getPendingShare()` returns a plain success when nothing is pending.
+- `getPendingShare()` returns a plain success when nothing is pending (resolves undefined in JS, never a null JSONObject).
+- Android share-to-app: `ShareReceiverActivity` runs the ML Kit decode on a background thread and relaunches the app only after the result is stored; `Tasks.await` on the main thread used to throw and show a false "not a valid QR" (APP-448).
+- Android share-to-app speed (APP-448): the ML Kit barcode client is pre-warmed on a background thread in `pluginInitialize` (about 1.8 s of CPU at startup, off the main thread; the client is kept for the process lifetime and reused by `ShareReceiverActivity`); the share activity brings the running app forward with `REORDER_TO_FRONT | NEW_TASK | SINGLE_TOP` instead of `CLEAR_TOP`, so an open app only resumes; `getPendingShare` runs on the Cordova thread pool.
 - `decodeFile()` returns every barcode found in an image file.
 
 ## License

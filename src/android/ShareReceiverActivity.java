@@ -97,9 +97,8 @@ public class ShareReceiverActivity extends Activity {
             }
 
             InputImage image = InputImage.fromFilePath(this, decodeUri);
-            BarcodeScannerOptions options = new BarcodeScannerOptions.Builder().build();
             List<Barcode> barcodes = Tasks.await(
-                    BarcodeScanning.getClient(options).process(image), 15, TimeUnit.SECONDS);
+                    BarcodeScanner.getSharedClient().process(image), 15, TimeUnit.SECONDS);
 
             JSONArray codes = new JSONArray();
             for (Barcode barcode : barcodes) {
@@ -200,7 +199,9 @@ public class ShareReceiverActivity extends Activity {
         try {
             Intent launch = getPackageManager().getLaunchIntentForPackage(getPackageName());
             if (launch != null) {
-                launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP
+                // APP-448: bring the running instance forward (a platform resume the JS layer
+                // listens for) instead of CLEAR_TOP, which could rebuild the activity and WebView.
+                launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
                         | Intent.FLAG_ACTIVITY_SINGLE_TOP);
                 startActivity(launch);
             }

@@ -51,6 +51,31 @@ public class BarcodeScanner extends CordovaPlugin {
     public static final String PENDING_SHARE_PREFS = "barcodescanner_pending_share";
     public static final String PENDING_SHARE_KEY = "pending_result";
 
+    /**
+     * APP-448: ML Kit's barcode module costs ~1.8 s to load the first time a client is created.
+     * Create it once on a background thread at plugin init so a later share only pays the decode.
+     * Shared with ShareReceiverActivity (same process).
+     */
+    static volatile com.google.mlkit.vision.barcode.BarcodeScanner sharedClient;
+
+    static synchronized com.google.mlkit.vision.barcode.BarcodeScanner getSharedClient() {
+        if (sharedClient == null) {
+            sharedClient = BarcodeScanning.getClient(new BarcodeScannerOptions.Builder().build());
+        }
+        return sharedClient;
+    }
+
+    @Override
+    protected void pluginInitialize() {
+        cordova.getThreadPool().execute(() -> {
+            try {
+                getSharedClient();
+            } catch (Throwable t) {
+                Log.w(TAG, "ML Kit prewarm failed", t);
+            }
+        });
+    }
+
     private CallbackContext callbackContext;
     private JSONObject scanOptions;
 
@@ -80,18 +105,26 @@ public class BarcodeScanner extends CordovaPlugin {
         }
 
         if (ACTION_GET_PENDING_SHARE.equals(action)) {
-            JSONObject pending = readAndClearPendingShare(cordova.getActivity());
-            if (pending != null) {
-                callbackContext.success(pending);
-            } else {
-                // Cordova's CallbackContext.success(JSONObject) calls message.toString() with no
-                // null guard, so a literal null throws a NullPointerException inside the plugin
-                // bridge (PluginManager then swallows it uncaught and never invokes the JS
-                // callback at all - the exec() promise hangs forever instead of resolving null,
-                // which hung every app startup that awaits getPendingShare()). Use the no-arg
-                // success() so "nothing pending" actually resolves on the JS side.
-                callbackContext.success();
-            }
+            final CallbackContext pendingCb = callbackContext;
+            cordova.getThreadPool().execute(() -> {
+                try {
+                    JSONObject pending = readAndClearPendingShare(cordova.getActivity());
+                    if (pending != null) {
+                        pendingCb.success(pending);
+                    } else {
+                        // Cordova's CallbackContext.success(JSONObject) calls message.toString() with no
+                        // null guard, so a literal null throws a NullPointerException inside the plugin
+                        // bridge (PluginManager then swallows it uncaught and never invokes the JS
+                        // callback at all - the exec() promise hangs forever instead of resolving null,
+                        // which hung every app startup that awaits getPendingShare()). Use the no-arg
+                        // success() so "nothing pending" actually resolves on the JS side.
+                        pendingCb.success();
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "getPendingShare failed", e);
+                    pendingCb.error("getPendingShare failed: " + e.getMessage());
+                }
+            });
             return true;
         }
 
