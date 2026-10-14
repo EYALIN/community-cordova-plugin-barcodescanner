@@ -227,7 +227,7 @@ If you're upgrading from the ZXing-based version:
 
 ## Release notes
 
-### 2.3.0 (unreleased additions)
+### 2.3.0 (Oct 14, 2026)
 
 - Android `decodeFile`: after the whole-image pass, overlapping tiles (halves, quadrants, 3x3) are re-scanned and merged (deduped by format + text), so an image holding several codes returns all of them instead of only the strongest one (APP-224).
 - Android batch camera: X and Done close through one path that unbinds the camera and disables both buttons immediately, so a tap during slow teardown cannot be lost or doubled (APP-225).
